@@ -1,0 +1,62 @@
+name: Build binaries
+
+# Produces a standalone single-file `ibpnl` binary per platform. Cross-compiling
+# is not possible, so each target OS builds on its own runner. Triggered on
+# version tags (attaches binaries to a GitHub Release) and manually.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            tag: windows-x64
+          - os: ubuntu-latest
+            tag: linux-x64
+          - os: macos-latest
+            tag: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend + PyInstaller
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install "pyinstaller>=6.0"
+
+      - name: Build binary
+        run: python scripts/build_binary.py --frontend
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ibpnl-${{ matrix.tag }}
+          path: dist/ibpnl-${{ matrix.tag }}*
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ibpnl-${{ matrix.tag }}*

@@ -1,0 +1,40 @@
+/* Design tokens — see docs/DESIGN.md. Light mode only by design. */
+
+:root {
+  /* palette */
+  --paper: #f6f7f9;
+  --card: #ffffff;
+  --ink: #131820;
+  --muted: #5d6673;
+  --hairline: #e2e6ec;
+  --accent: #16508f;
+  --accent-soft: #eaf1fa;
+  /* pnl pair — swapped at runtime by the color-convention setting */
+  --up: #0e7c4a;
+  --down: #c93b36;
+  --up-tint: color-mix(in srgb, var(--up) 12%, transparent);
+  --down-tint: color-mix(in srgb, var(--down) 12%, transparent);
+
+  /* ext-hours chart shading: pre-market (cool) vs after-hours (warm).
+     `-ink` are the opaque hues for legend swatches; the translucent fills are
+     read by the chart JS and kept very light so candles read through. */
+  --shade-pre-ink: #4078c8;
+  --shade-post-ink: #c48e24;
+  --shade-pre: rgba(64, 120, 200, 0.09);
+  --shade-post: rgba(196, 142, 36, 0.11);
+
+  /* type */
+  --font-ui: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Mono", "SF Mono", "Roboto Mono", Consolas, ui-monospace,
+    monospace;
+
+  /* scale */
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-md: 14px;
+  --fs-lg: 17px;
+  --fs-xl: 24px;
+
+  --radius: 6px;
+  --pad-page: clamp(12px, 3vw, 28px);
+}
