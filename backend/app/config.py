@@ -19,9 +19,9 @@ class Settings:
     log_level: str = "INFO"
 
     # --- Provider selection ---
-    # "mock" -> deterministic simulated data (default; no IB needed)
-    # "ib"   -> real ib_async connection to IB Gateway / TWS
-    data_provider: str = "mock"
+    # "ib"   -> real ib_async connection to IB Gateway / TWS (default)
+    # "mock" -> deterministic simulated data (no IB needed)
+    data_provider: str = "ib"
 
     # --- IB connection (used when data_provider == "ib") ---
     ib_host: str = "127.0.0.1"

@@ -57,8 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "IBPNL - a professional, read-only web dashboard for Interactive "
             "Brokers accounts (positions, P&L, live quotes, option greeks, "
-            "candlestick charts). Runs fully offline against simulated data by "
-            "default; point it at IB Gateway/TWS with --provider ib."
+            "candlestick charts). Connects to a live IB Gateway/TWS by default; "
+            "run fully offline against simulated data with --provider mock."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -83,8 +83,8 @@ def build_parser() -> argparse.ArgumentParser:
     prov.add_argument(
         "--provider",
         choices=["mock", "ib"],
-        default="mock",
-        help="'mock' = built-in simulated account; 'ib' = live IB Gateway/TWS",
+        default="ib",
+        help="'ib' = live IB Gateway/TWS (default); 'mock' = built-in simulated account",
     )
 
     ib = p.add_argument_group("IB connection (with --provider ib)")

@@ -66,7 +66,7 @@ The rest of the app (API, services, frontend) only ever sees our own Pydantic
 models — never raw `ib_async` objects. This keeps IB quirks in one file and lets
 us develop/test with zero dependency on a running Gateway.
 
-Selection is via the `--provider` CLI flag (`mock` | `ib`), applied to
+Selection is via the `--provider` CLI flag (`ib` default | `mock`), applied to
 [`app/config.py`](../backend/app/config.py) by the
 [`ibpnl` CLI](../backend/app/cli.py) and constructed in
 [`app/main.py`](../backend/app/main.py) at startup (stored on `app.state`).

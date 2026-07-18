@@ -16,7 +16,7 @@ python -m venv .venv
 # Windows (cmd):      .venv\Scripts\activate.bat
 # macOS/Linux:        source .venv/bin/activate
 pip install -e ".[dev]"
-ibpnl                 # mock mode; `python -m app.main` is an alias
+ibpnl                 # live IB mode (add --provider mock for simulated data); `python -m app.main` is an alias
 ```
 
 ### Configuration (command-line flags)
@@ -26,7 +26,7 @@ environment-variable or `.env` support. Run `ibpnl --help` for the full list.
 
 | Flag                | Default     | Meaning                                                        |
 | ------------------- | ----------- | -------------------------------------------------------------- |
-| `--provider`        | `mock`      | `mock` or `ib`                                                 |
+| `--provider`        | `ib`        | `ib` or `mock`                                                 |
 | `--host`            | `127.0.0.1` | Bind host                                                      |
 | `--port`            | `8000`      | Bind port                                                      |
 | `--open`            | off         | Open the dashboard in a browser once it's up                  |

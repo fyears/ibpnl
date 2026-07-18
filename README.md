@@ -5,14 +5,17 @@ dashboard: cross-market positions grouped by underlying, live P&L, streaming
 quotes and option greeks, and professional candlestick charts with
 extended-hours shading — all **read-only** (it never places or modifies orders).
 
-It runs against a built-in **mock account by default**, so you can try the whole
-thing in one command without an IB connection or risking any real data.
+It connects to your **live IB Gateway / TWS by default**. Start Gateway/TWS with
+the API enabled first, then launch IBPNL in one command. No IB running? Add
+`--provider mock` to explore the whole thing against a built-in simulated
+account — no connection or real data required.
 
 ```bash
 git clone <this-repo> && cd ibpnl
 cd frontend && npm install && npm run build && cd ../backend
 pip install -e .
-ibpnl --open              # mock mode — opens http://127.0.0.1:8000 in your browser
+ibpnl --open                    # live IB account — opens http://127.0.0.1:8000
+ibpnl --provider mock --open    # ...or a built-in simulated account, no IB needed
 ```
 
 > All screenshots below use the built-in **simulated** account (`DU-MOCK-001`).
@@ -78,7 +81,8 @@ python -m venv .venv
 source .venv/bin/activate         # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"           # drop [dev] if you don't need tests/linters
 
-# 3. run it
+# 3. run it (needs IB Gateway/TWS running with the API enabled;
+#    or add --provider mock to try it with no IB connection)
 ibpnl --open
 ```
 
@@ -86,7 +90,7 @@ The repo uses [Git LFS](https://git-lfs.com/) for the PNG screenshots — run
 `git lfs install` once before cloning, or `git lfs pull` afterwards, to fetch
 them.
 
-To run against a **real** account you also need
+Running against a **real** account (the default) needs
 [IB Gateway or Trader Workstation](https://www.interactivebrokers.com/en/trading/ibgateway-stable.php)
 running locally with the API enabled.
 
@@ -94,28 +98,28 @@ running locally with the API enabled.
 
 ## Usage
 
-### Try it with simulated data (default)
-
-```bash
-ibpnl                     # mock account, http://127.0.0.1:8000
-ibpnl --open              # ...and open it in your browser
-ibpnl --mock-md delayed   # simulate a delayed-data account to see the badges
-```
-
-### Connect to your IB account
+### Connect to your IB account (default)
 
 Start IB Gateway / TWS first, enable the API (Gateway: *Configure → Settings →
 API → Enable ActiveX and Socket Clients*), then:
 
 ```bash
-ibpnl --provider ib                        # tries the usual ports, first managed account
-ibpnl --provider ib --account U1234567     # a specific account
-ibpnl --provider ib --ib-ports 7496        # only TWS live
-ibpnl --provider ib --log-level debug      # trace the IB conversation in the terminal
+ibpnl                            # tries the usual ports, first managed account
+ibpnl --account U1234567         # a specific account
+ibpnl --ib-ports 7496            # only TWS live
+ibpnl --log-level debug          # trace the IB conversation in the terminal
 ```
 
 By default the ports `4001,4002,7496,7497` (Gateway live/paper, TWS live/paper)
 are tried in order and the first that answers is used.
+
+### Try it with simulated data (no IB needed)
+
+```bash
+ibpnl --provider mock              # mock account, http://127.0.0.1:8000
+ibpnl --provider mock --open       # ...and open it in your browser
+ibpnl --provider mock --mock-md delayed   # simulate a delayed-data account to see the badges
+```
 
 #### About the client id
 
@@ -131,7 +135,7 @@ Run `ibpnl --help` for the authoritative list. Summary:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--provider {mock,ib}` | `mock` | `mock` = built-in simulated account; `ib` = live IB Gateway/TWS |
+| `--provider {mock,ib}` | `ib` | `ib` = live IB Gateway/TWS; `mock` = built-in simulated account |
 | `--host` | `127.0.0.1` | Bind address for the web UI |
 | `--port` | `8000` | Port for the web UI |
 | `--open` | off | Open the dashboard in your browser once it's up |

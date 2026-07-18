@@ -218,8 +218,8 @@ Verified in mock mode and live against a real IB account (SPX 8-leg condor, MU c
 
 ## Open decisions / notes
 
-- Provider selected at startup via the `--provider` CLI flag. Mock is default so
-  the app runs with zero external dependencies.
+- Provider selected at startup via the `--provider` CLI flag. Live IB is the
+  default; `--provider mock` runs with zero external dependencies.
 - Frontend is served by the backend in production (`npm run build` →
   `backend/app/static`), and via Vite dev server with a proxy in development.
 - Grouping key = underlying symbol (options/FOPs group under their underlying;
@@ -229,6 +229,6 @@ Verified in mock mode and live against a real IB account (SPX 8-leg condor, MU c
 
 1. Read `docs/ARCHITECTURE.md`.
 2. Skim this file's checklist to see what's done.
-3. `cd backend && pip install -e ".[dev]" && ibpnl` (mock mode).
+3. `cd backend && pip install -e ".[dev]" && ibpnl --provider mock` (no IB needed).
 4. `cd frontend && npm install && npm run dev`.
 5. Pick the next ⬜ item.

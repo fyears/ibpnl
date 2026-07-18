@@ -8,8 +8,8 @@ doc it points you to for the area you're touching.
 **IBPNL** — a professional, **read-only** web dashboard for an Interactive
 Brokers account: cross-market positions grouped by underlying, live P&L,
 streaming quotes and option greeks, and candlestick charts with extended-hours
-shading. Runs against a built-in **mock account by default**; point it at IB
-Gateway/TWS with `--provider ib`.
+shading. Connects to a live IB Gateway/TWS **by default**; run against the
+built-in mock account with `--provider mock`.
 
 - **Backend**: Python 3.11+, `ib_async`, FastAPI, WebSockets (`backend/`).
 - **Frontend**: vanilla TypeScript + Vite, lightweight-charts, TanStack Table
@@ -65,11 +65,11 @@ docs/               ARCHITECTURE, GOTCHAS, DEVELOPMENT, DESIGN, PLAN
 ## Run / build / test
 
 ```bash
-# backend (mock mode; no IB needed)
+# backend
 cd backend && python -m venv .venv && source .venv/Scripts/activate   # or .../bin/activate
 pip install -e ".[dev]"
-ibpnl                        # http://127.0.0.1:8000 ; add --open to launch a browser
-ibpnl --provider ib          # live IB Gateway/TWS (must be running, API enabled)
+ibpnl                        # live IB Gateway/TWS (default; must be running, API enabled) ; http://127.0.0.1:8000
+ibpnl --provider mock        # built-in simulated account, no IB needed ; add --open to launch a browser
 
 # frontend
 cd frontend && npm install
