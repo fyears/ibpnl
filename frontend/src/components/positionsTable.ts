@@ -63,8 +63,26 @@ export interface ComboSelection {
   legs: { conId: number; quantity: number; instrument: Instrument }[];
 }
 
+/** Quick per-underlying bulk-select buckets for the combo chart. */
+type QuickKind = "all" | "call" | "put" | "long" | "short";
+
 function isOptionLeg(p: Position): boolean {
   return p.instrument.sec_type === "OPT" || p.instrument.sec_type === "FOP";
+}
+
+function matchesKind(p: Position, kind: QuickKind): boolean {
+  switch (kind) {
+    case "all":
+      return true;
+    case "call":
+      return p.instrument.right === "C";
+    case "put":
+      return p.instrument.right === "P";
+    case "long":
+      return p.quantity > 0;
+    case "short":
+      return p.quantity < 0;
+  }
 }
 
 function toRows(groups: PositionGroup[]): RowData[] {
@@ -334,6 +352,39 @@ export class PositionsTable {
     this.emitSelection();
   }
 
+  /** Option legs of a group, by underlying symbol. */
+  private optionLegsOf(underlying: string): Position[] {
+    const g = this.data.find(
+      (r): r is GroupRow | FlatRow =>
+        (r.kind === "group" || r.kind === "flat") && r.symbol === underlying,
+    );
+    if (!g) return [];
+    const legs = g.kind === "group" ? g.subRows.map((l) => l.leg) : [g.leg];
+    return legs.filter(isOptionLeg);
+  }
+
+  /**
+   * Replace the selection with every option leg of `underlying` matching
+   * `kind` (all / calls / puts / longs / shorts). Clicking the already-active
+   * bucket clears it. Blocked when another underlying is already selected.
+   */
+  private quickSelect(underlying: string, kind: QuickKind): void {
+    if (this.selUnderlying && this.selUnderlying !== underlying) return;
+    const conIds = this.optionLegsOf(underlying)
+      .filter((p) => matchesKind(p, kind))
+      .map((p) => p.instrument.con_id);
+    if (conIds.length === 0) return;
+    // Toggle off if this exact bucket is already the active selection.
+    const isActive =
+      this.selUnderlying === underlying &&
+      this.selected.size === conIds.length &&
+      conIds.every((c) => this.selected.has(c));
+    this.selected = new Set(isActive ? [] : conIds);
+    this.selUnderlying = this.selected.size ? underlying : null;
+    this.render();
+    this.emitSelection();
+  }
+
   private emitSelection(): void {
     if (!this.onSel) return;
     if (this.selected.size === 0 || !this.selUnderlying) {
@@ -478,6 +529,14 @@ export class PositionsTable {
         this.toggleLeg(Number(cb.dataset.con), cb.dataset.und ?? "");
       });
     });
+    // combo quick-select chips on group headers (don't toggle expand/collapse)
+    tbody.querySelectorAll<HTMLButtonElement>("button.quick-chip").forEach((chip) => {
+      chip.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (chip.disabled) return;
+        this.quickSelect(chip.dataset.und ?? "", chip.dataset.kind as QuickKind);
+      });
+    });
 
     const count = this.host.querySelector("#pos-count");
     if (count) {
@@ -504,6 +563,46 @@ export class PositionsTable {
     return `<input type="checkbox" class="leg-select" data-con="${conId}" data-und="${escapeHtml(underlying)}"${checked}${disabled} title="${title}" aria-label="Select option leg for combo">`;
   }
 
+  /**
+   * A full-width row of quick bulk-select chips (All / Calls / Puts / Long /
+   * Short) beneath a group header. A filter chip is shown only when it selects
+   * a non-empty proper subset; each is a toggle that replaces the selection.
+   * Rendered as its own row so it isn't clipped by the sticky first column.
+   */
+  private quickRow(underlying: string): string {
+    const legs = this.optionLegsOf(underlying);
+    if (legs.length < 2) return ""; // single leg → the checkbox is enough
+    const total = legs.length;
+    const count = (k: QuickKind) => legs.filter((p) => matchesKind(p, k)).length;
+    const buckets: { kind: QuickKind; label: string }[] = [
+      { kind: "all", label: "All" },
+      { kind: "call", label: "Calls" },
+      { kind: "put", label: "Puts" },
+      { kind: "long", label: "Long" },
+      { kind: "short", label: "Short" },
+    ];
+    const disabled = this.selUnderlying != null && this.selUnderlying !== underlying;
+    const chips = buckets
+      .map((b) => ({ ...b, n: count(b.kind) }))
+      // "all" always shown; filters only when they carve a proper, non-empty subset
+      .filter((b) => (b.kind === "all" ? true : b.n > 0 && b.n < total))
+      .map((b) => {
+        const active =
+          !disabled &&
+          this.selUnderlying === underlying &&
+          this.selected.size === b.n &&
+          legs
+            .filter((p) => matchesKind(p, b.kind))
+            .every((p) => this.selected.has(p.instrument.con_id));
+        return `<button type="button" class="quick-chip${active ? " active" : ""}" data-und="${escapeHtml(underlying)}" data-kind="${b.kind}"${disabled ? " disabled" : ""} title="Select all ${b.label.toLowerCase()} option legs for a combo chart">${b.label}</button>`;
+      })
+      .join("");
+    const tip = disabled ? "Clear the current combo selection first" : "Combo quick-select";
+    return `<tr class="quick-row"><td colspan="${HEADERS.length + 1}">
+      <div class="quick-inner"><span class="quick-lead" title="${tip}">Combo:</span>${chips}</div>
+    </td></tr>`;
+  }
+
   private rowHtml(row: Row<RowData>): string {
     const r = row.original;
     if (r.kind === "group") {
@@ -524,7 +623,7 @@ export class PositionsTable {
           <td class="num"><span class="${pnlClass(g.total_unrealized_pnl)}">${fmtPnl(g.total_unrealized_pnl, g.currency)}</span></td>
           <td class="num">${fmtMoney(g.total_market_value, g.currency)}</td>
           <td></td>
-        </tr>`;
+        </tr>${this.quickRow(r.symbol)}`;
     }
 
     if (r.kind === "flat") {

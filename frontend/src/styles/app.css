@@ -879,6 +879,61 @@ input.leg-select:disabled {
   opacity: 0.4;
 }
 
+/* full-width quick bulk-select chip row beneath a group header */
+tr.quick-row td {
+  padding: 8px 12px 10px 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent);
+  /* escape the sticky first-column clip: this is a normal full-width cell */
+  position: static;
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  text-align: left;
+  box-shadow: none;
+}
+tr.quick-row .quick-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.quick-lead {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.quick-chip {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.quick-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.quick-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.quick-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 /* floating action bar shown while a combo selection is active */
 .combo-bar {
   position: fixed;
