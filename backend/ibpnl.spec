@@ -45,6 +45,33 @@ hiddenimports += [
     "nest_asyncio",
 ]
 
+# --- Excludes --------------------------------------------------------------
+# Modules PyInstaller's static analysis reaches (mainly via ib_async.util's
+# nested plotting / DataFrame helpers, which this read-only app never calls)
+# but that are provably unused at runtime. Verified by import-blocking every
+# name below and confirming app.cli / app.main / both providers / routes / ws
+# still import cleanly. Numerical stacks (numpy, pandas, scipy) are KEPT on
+# purpose. Excluding an absent package is a harmless no-op, so this also stops
+# a fat build environment from bloating the binary.
+excludes = [
+    "tkinter", "watchfiles",
+    # plotting / imaging (ib_async.util.plot* only)
+    "matplotlib", "matplotlib_inline", "mpl_toolkits", "PIL",
+    "contourpy", "kiwisolver", "cycler",
+    # IPython / Jupyter / kernel stack
+    "IPython", "ipykernel", "jupyter_client", "jupyter_core", "nbformat",
+    "comm", "zmq", "tornado", "debugpy", "psutil",
+    "prompt_toolkit", "jedi", "parso",
+    "stack_data", "executing", "asttokens", "pure_eval",
+    # test / type-check tooling (dev-only)
+    "pytest", "_pytest", "py", "pluggy", "iniconfig", "mypy", "mypy_extensions",
+    # http client used only in tests, and its transitive deps
+    "requests", "urllib3", "charset_normalizer",
+    # html / json-schema chain pulled in via nbformat & bs4
+    "bs4", "soupsieve", "jsonschema", "fastjsonschema", "referencing", "rpds",
+    "isoduration", "fqdn", "uri_template", "webcolors", "arrow", "defusedxml",
+]
+
 a = Analysis(  # noqa: F821
     [str(BACKEND / "packaging" / "entry.py")],
     pathex=[str(BACKEND)],
@@ -54,7 +81,7 @@ a = Analysis(  # noqa: F821
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "watchfiles"],
+    excludes=excludes,
     noarchive=False,
 )
 
