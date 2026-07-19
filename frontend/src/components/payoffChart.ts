@@ -9,9 +9,15 @@
 // is computed, never faked. Plotly gives us native fills and unified hover
 // tooltips (underlying price + P&L for today / selected day / expiry).
 
-import Plotly from "plotly.js";
+// Custom Plotly registry build: import the core and register ONLY the scatter
+// trace we actually use. This trims the bundle from ~5.4 MB (full plotly.js) to
+// ~1 MB, since the payoff diagram is just 2D line traces.
+import Plotly from "plotly.js/lib/core";
+import scatter from "plotly.js/lib/scatter";
 import type { ComboLegInfo } from "../api/types";
 import { bsPrice } from "../lib/blackscholes";
+
+Plotly.register([scatter]);
 
 // ── constants ──────────────────────────────────────────────────────────────
 
