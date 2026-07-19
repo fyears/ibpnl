@@ -24,6 +24,7 @@ import asyncio
 import copy
 import logging
 import math
+import sys
 from collections.abc import Iterable
 from datetime import datetime, timezone
 
@@ -82,12 +83,25 @@ _NO_DATA_ERRORS = {354, 10089, 10167, 10168, 10197}
 _GENERIC_TICKS = "100,101,104,106,165,233,295"
 
 
+# IB TWS API's 'unset' sentinel for double fields (Java Double.MAX_VALUE).
+# Values at/above this magnitude mean "no value", not a real number.
+_IB_UNSET_DOUBLE = sys.float_info.max
+
+
 def _f(value: float | None) -> float | None:
-    """IB uses NaN for 'unset'; normalize to None for JSON."""
+    """Normalize an IB numeric field to a real value or None for JSON.
+
+    IB marks an 'unset' field two different ways: NaN, or the sentinel
+    ``Double.MAX_VALUE`` (== ``sys.float_info.max`` ≈ 1.7977e308). The latter
+    leaks through as a literal 1.79e308 if not filtered — most visibly on
+    reqPnLSingle.dailyPnL for positions with no prior close, which then blows
+    up the group/account daily-PnL totals. Treat any non-finite value (NaN,
+    ±inf) or the huge sentinel as unset.
+    """
     if value is None:
         return None
     try:
-        if math.isnan(value):
+        if not math.isfinite(value) or abs(value) >= _IB_UNSET_DOUBLE:
             return None
     except TypeError:
         return None
