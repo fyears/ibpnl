@@ -16,7 +16,6 @@ import type {
   SessionWindow,
 } from "../api/types";
 import { CandleChart } from "../components/candleChart";
-import { mountSearchBox } from "../components/searchBox";
 import {
   fmtExpiry,
   fmtMoney,
@@ -63,7 +62,6 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     <div class="page">
       <div class="inst-topline">
         <p class="eyebrow"><a href="#/">← Positions</a></p>
-        <div class="inst-search" id="inst-search"></div>
       </div>
       <div class="inst-header">
         <h1 id="combo-name" class="skeleton">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</h1>
@@ -133,11 +131,6 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
 
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => outlet.querySelector<T>(sel);
 
-  const teardownSearch = mountSearchBox($("#inst-search")!, {
-    compact: true,
-    placeholder: "Search another symbol…",
-  });
-
   const legConIds = () => meta?.legs.map((l) => l.instrument.con_id) ?? [];
   const ratioOf = (conId: number) =>
     meta?.legs.find((l) => l.instrument.con_id === conId)?.ratio ?? 0;
@@ -161,7 +154,7 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     $("#combo-sub")!.innerHTML =
       `${escapeHtml(legs)}${mult}` +
       `<span class="combo-canon" title="Canonical combo">${escapeHtml(meta.canonical)}</span>`;
-    document.title = `${meta.symbol} combo — IBKR Deck`;
+    document.title = `${meta.symbol} combo — IB PnL`;
   };
 
   const renderLegs = () => {
@@ -489,14 +482,13 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
 
   return () => {
     disposed = true;
-    teardownSearch();
     unsub();
     unsubSettings();
     stream.subscribeQuotes([]);
     stream.subscribeBars(null);
     chart?.destroy();
     chart = null;
-    document.title = "IBKR Deck";
+    document.title = "IB PnL";
   };
 }
 

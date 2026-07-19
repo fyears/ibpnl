@@ -194,14 +194,28 @@ class IBProvider(MarketDataProvider):
     # ------------------------------------------------------------------ lifecycle
 
     async def start(self) -> None:
-        await self._connect()
-        # wire events once
+        # wire events once (before connecting, so a drop during startup is caught)
         self.ib.pendingTickersEvent += self._on_pending_tickers
         self.ib.pnlSingleEvent += self._on_pnl_single
         self.ib.pnlEvent += self._on_account_pnl
         self.ib.barUpdateEvent += self._on_bar_update
         self.ib.errorEvent += self._on_error
         self.ib.disconnectedEvent += self._on_disconnected
+        # Don't hard-fail if IB Gateway/TWS isn't up yet: come online in a
+        # disconnected state and keep retrying in the background, so the UI can
+        # tell the user to start/log in to Gateway or TWS instead of the whole
+        # server refusing to boot.
+        try:
+            await self._connect()
+        except ConnectionError:
+            self._detail = (
+                "IB Gateway/TWS not reachable on "
+                f"{settings.ib_host}:{settings.ib_ports}. "
+                "Start it, log in, and enable API access (retrying…)."
+            )
+            log.warning(self._detail)
+            loop = asyncio.get_event_loop()
+            self._reconnect_task = loop.create_task(self._reconnect_loop())
 
     async def _connect(self) -> None:
         last_err: Exception | None = None

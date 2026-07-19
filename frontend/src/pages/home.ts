@@ -5,7 +5,6 @@ import { stream } from "../api/stream";
 import type { AccountSummary } from "../api/types";
 import { fmtMoney, fmtPnl, pnlClass } from "../lib/format";
 import { PositionsTable, type ComboSelection } from "../components/positionsTable";
-import { mountSearchBox } from "../components/searchBox";
 
 const TAPE_CELLS: {
   key: keyof AccountSummary;
@@ -33,7 +32,6 @@ export function renderHome(outlet: HTMLElement): () => void {
     </section>
     <div class="md-note" id="md-note" hidden></div>
     <div class="page">
-      <div id="search-host"></div>
       <div id="positions-host">
         <div class="loading-note"><span class="spin"></span>Loading positions from your account…</div>
       </div>
@@ -171,8 +169,6 @@ export function renderHome(outlet: HTMLElement): () => void {
     }
   };
 
-  const teardownSearch = mountSearchBox(outlet.querySelector("#search-host")!);
-
   const unsub = stream.onMessage((msg) => {
     if (msg.type === "account") {
       applyAccountLive(msg.day_pnl, msg.unrealized_pnl, msg.net_liquidation);
@@ -199,7 +195,6 @@ export function renderHome(outlet: HTMLElement): () => void {
   return () => {
     disposed = true;
     unsub();
-    teardownSearch();
     window.clearInterval(accountTimer);
     stream.subscribeQuotes([]);
   };

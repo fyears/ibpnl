@@ -634,7 +634,7 @@ export class PositionsTable {
       return `
         <tr class="flat-row" data-nav="${conId}">
           <td>
-            ${isOptionLeg(leg) ? this.selectBox(conId, r.symbol) : ""}
+            ${isOptionLeg(leg) ? this.selectBox(conId, r.symbol) : `<span class="sel-pad"></span>`}
             <a class="flat-sym mono" href="#/i/${conId}">${escapeHtml(r.symbol)}</a>
             <span class="group-meta">${assetClassLabel(r.group.asset_class)} · ${escapeHtml(legLabel(inst))}</span>
           </td>
@@ -657,7 +657,7 @@ export class PositionsTable {
     return `
       <tr class="leg-row" data-nav="${conId}">
         <td>
-          ${isOptionLeg(leg) ? this.selectBox(conId, r.groupSymbol) : ""}
+          ${isOptionLeg(leg) ? this.selectBox(conId, r.groupSymbol) : `<span class="sel-pad"></span>`}
           <a class="leg-link mono" href="#/i/${conId}">${escapeHtml(legLabel(inst))}</a>
           <span class="leg-kind">${escapeHtml(inst.exchange)}</span>
         </td>

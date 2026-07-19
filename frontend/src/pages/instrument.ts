@@ -10,7 +10,6 @@ import { stream } from "../api/stream";
 import type { BarSet, Greeks, Instrument, Position, Quote, SessionWindow } from "../api/types";
 import { CandleChart } from "../components/candleChart";
 import { mdtBadge, sideBadge } from "../components/badges";
-import { mountSearchBox } from "../components/searchBox";
 import {
   assetClassLabel,
   fmtExpiry,
@@ -62,7 +61,6 @@ export function renderInstrument(outlet: HTMLElement, conId: number): () => void
     <div class="page">
       <div class="inst-topline">
         <p class="eyebrow"><a href="#/">← Positions</a></p>
-        <div class="inst-search" id="inst-search"></div>
       </div>
       <div class="inst-header">
         <h1 id="inst-name" class="skeleton">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</h1>
@@ -134,12 +132,6 @@ export function renderInstrument(outlet: HTMLElement, conId: number): () => void
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
     outlet.querySelector<T>(sel);
 
-  // Banner search: jump to another symbol's chart without going home first.
-  const teardownSearch = mountSearchBox($("#inst-search")!, {
-    compact: true,
-    placeholder: "Search another symbol…",
-  });
-
   const isOption = () => !!inst && (inst.sec_type === "OPT" || inst.sec_type === "FOP");
 
   // ---------- header ----------
@@ -153,7 +145,7 @@ export function renderInstrument(outlet: HTMLElement, conId: number): () => void
       .filter(Boolean)
       .join(" · ");
     $("#inst-sub")!.textContent = sub;
-    document.title = `${displayName(inst)} — IBKR Deck`;
+    document.title = `${displayName(inst)} — IB PnL`;
   };
 
   const renderPrice = () => {
@@ -490,14 +482,13 @@ export function renderInstrument(outlet: HTMLElement, conId: number): () => void
 
   return () => {
     disposed = true;
-    teardownSearch();
     unsub();
     unsubSettings();
     stream.subscribeQuotes([]);
     stream.subscribeBars(null);
     chart?.destroy();
     chart = null;
-    document.title = "IBKR Deck";
+    document.title = "IB PnL";
   };
 }
 

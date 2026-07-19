@@ -14,6 +14,7 @@ import {
 import { renderHome } from "./pages/home";
 import { renderInstrument } from "./pages/instrument";
 import { renderCombo } from "./pages/combo";
+import { mountSearchBox } from "./components/searchBox";
 import { installErrorReporting, reportError } from "./lib/errors";
 
 const app = document.getElementById("app")!;
@@ -23,10 +24,12 @@ let teardown: (() => void) | null = null;
 function shell(): { outlet: HTMLElement } {
   app.innerHTML = `
     <header class="topbar">
-      <span class="wordmark"><a href="#/">IBKR<span class="tick">·</span>DECK</a></span>
+      <span class="wordmark"><a href="#/">IB&nbsp;<span class="tick">PnL</span></a></span>
+      <div class="topbar-search" id="search-host"></div>
       <span class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span></span>
       <button class="icon-btn" id="settings-btn" aria-label="Settings">Settings</button>
     </header>
+    <div class="ib-warn" id="ib-warn" hidden></div>
     <main id="outlet"></main>
     <dialog class="settings" id="settings-dlg">
       <form method="dialog" class="settings-body">
@@ -80,7 +83,28 @@ function shell(): { outlet: HTMLElement } {
   });
   sync();
 
+  // Global symbol search lives in the banner, available on every page.
+  mountSearchBox(document.getElementById("search-host")!, {
+    compact: true,
+    placeholder: "Search symbol…",
+  });
+
   return { outlet: document.getElementById("outlet")! };
+}
+
+function setIbWarn(html: string | null): void {
+  const warn = document.getElementById("ib-warn");
+  if (!warn) return;
+  if (!html) {
+    warn.hidden = true;
+    warn.innerHTML = "";
+    return;
+  }
+  warn.hidden = false;
+  warn.innerHTML = html;
+  warn.querySelector("#ib-retry")?.addEventListener("click", () => {
+    void pollStatus();
+  });
 }
 
 async function pollStatus(): Promise<void> {
@@ -95,11 +119,34 @@ async function pollStatus(): Promise<void> {
       ? `${label} · ${st.account || "connected"}`
       : "Disconnected";
     conn.title = st.detail;
+    // Prominent banner when running against IB but not connected/logged in.
+    if (st.provider === "ib" && !st.connected) {
+      setIbWarn(
+        `<span class="ib-warn-msg"><strong>IB Gateway / TWS not connected.</strong> ` +
+          `${escapeHtml(st.detail || "Start IB Gateway or TWS, log in, and enable API access.")}</span>` +
+          `<button type="button" class="ib-warn-btn" id="ib-retry">Retry now</button>`,
+      );
+    } else {
+      setIbWarn(null);
+    }
   } catch (err) {
     conn.className = "conn bad";
     text.textContent = "Backend unreachable";
+    setIbWarn(
+      `<span class="ib-warn-msg"><strong>Backend unreachable.</strong> ` +
+        `The ibpnl server isn't responding. Check that it's running, then</span>` +
+        `<button type="button" class="ib-warn-btn" id="ib-retry">Retry now</button>`,
+    );
     reportError("status poll failed (backend unreachable?)", err);
   }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function route(): void {

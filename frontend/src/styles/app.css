@@ -63,13 +63,28 @@ a:hover {
   color: var(--accent);
 }
 
+/* global symbol search living in the banner */
+.topbar-search {
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
+  margin: 0 auto 0 8px;
+}
+.topbar-search .search-bar {
+  margin: 0;
+}
+.topbar-search .search-input {
+  padding: 7px 10px;
+  font-size: var(--fs-sm);
+}
+
 .conn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
   font-size: var(--fs-sm);
   color: var(--muted);
+  white-space: nowrap;
 }
 .conn .dot {
   width: 8px;
@@ -96,6 +111,40 @@ a:hover {
 .icon-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* prominent warning strip: IB not connected, or backend unreachable */
+.ib-warn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px var(--pad-page);
+  background: #fbf3e2;
+  color: #7a5308;
+  border-bottom: 1px solid color-mix(in srgb, #9a6a12 30%, transparent);
+  font-size: var(--fs-sm);
+}
+.ib-warn[hidden] {
+  display: none;
+}
+.ib-warn .ib-warn-msg {
+  flex: 1;
+  min-width: 0;
+}
+.ib-warn .ib-warn-btn {
+  flex: none;
+  border: 1px solid color-mix(in srgb, #9a6a12 45%, transparent);
+  background: transparent;
+  color: #7a5308;
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ib-warn .ib-warn-btn:hover {
+  background: color-mix(in srgb, #9a6a12 12%, transparent);
 }
 
 /* ---------- eyebrow / section labels ---------- */
@@ -869,7 +918,7 @@ dialog.settings::backdrop {
 input.leg-select {
   width: 20px;
   height: 20px;
-  margin-right: 8px;
+  margin: 0 8px 0 0;
   vertical-align: middle;
   cursor: pointer;
   accent-color: var(--accent);
@@ -877,6 +926,14 @@ input.leg-select {
 input.leg-select:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+/* invisible stand-in on non-option rows so stock/option leg labels line up
+   at the same left edge whether or not a combo checkbox is present */
+span.sel-pad {
+  display: inline-block;
+  width: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 /* full-width quick bulk-select chip row beneath a group header */
