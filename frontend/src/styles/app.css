@@ -1,4 +1,5 @@
 /* App styles. Layout + components. Mobile-first where practical. */
+@import "../../node_modules/uplot/dist/uPlot.min.css";
 
 * {
   box-sizing: border-box;
@@ -437,14 +438,27 @@ table.positions td {
   white-space: nowrap;
   border-bottom: 1px solid var(--hairline);
 }
+/* narrow checkbox column — sticky at left edge */
 table.positions th:first-child,
 table.positions td:first-child {
-  text-align: left;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  padding: 4px;
+  text-align: center;
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--card);
-  /* soft edge hint when horizontally scrolled */
+}
+/* symbol column — sticky behind the checkbox column */
+table.positions th:nth-child(2),
+table.positions td:nth-child(2) {
+  text-align: left;
+  position: sticky;
+  left: 36px;
+  z-index: 2;
+  background: var(--card);
   box-shadow: 6px 0 6px -6px rgba(19, 24, 32, 0.12);
   max-width: 220px;
   overflow: hidden;
@@ -464,7 +478,8 @@ table.positions thead th {
   cursor: pointer;
   user-select: none;
 }
-table.positions thead th:first-child {
+table.positions thead th:first-child,
+table.positions thead th:nth-child(2) {
   z-index: 4;
 }
 table.positions thead th .arrow {
@@ -479,7 +494,7 @@ tr.group-row td {
   padding-bottom: 10px;
   cursor: pointer;
 }
-tr.group-row td:first-child {
+tr.group-row td:nth-child(2) {
   border-left: 3px solid var(--accent);
   font-family: var(--font-mono);
   font-weight: 700;
@@ -506,7 +521,7 @@ tr.group-row .group-meta {
 tr.flat-row td {
   cursor: pointer;
 }
-tr.flat-row td:first-child {
+tr.flat-row td:nth-child(2) {
   border-left: 3px solid var(--accent);
   font-family: var(--font-mono);
 }
@@ -527,14 +542,15 @@ tr.leg-row td {
   color: var(--ink);
   cursor: pointer;
 }
-tr.leg-row td:first-child {
+tr.leg-row td:nth-child(2) {
   padding-left: 26px;
   border-left: 3px solid transparent;
 }
 tr.leg-row:hover td {
   background: var(--accent-soft);
 }
-tr.leg-row:hover td:first-child {
+tr.leg-row:hover td:first-child,
+tr.leg-row:hover td:nth-child(2) {
   background: var(--accent-soft);
 }
 tr.leg-row .leg-link {
@@ -918,22 +934,14 @@ dialog.settings::backdrop {
 input.leg-select {
   width: 20px;
   height: 20px;
-  margin: 0 8px 0 0;
-  vertical-align: middle;
+  display: block;
+  margin: 0 auto;
   cursor: pointer;
   accent-color: var(--accent);
 }
 input.leg-select:disabled {
   cursor: not-allowed;
   opacity: 0.4;
-}
-/* invisible stand-in on non-option rows so stock/option leg labels line up
-   at the same left edge whether or not a combo checkbox is present */
-span.sel-pad {
-  display: inline-block;
-  width: 20px;
-  margin-right: 8px;
-  vertical-align: middle;
 }
 
 /* full-width quick bulk-select chip row beneath a group header */
@@ -1100,4 +1108,108 @@ tr.quick-row .quick-inner {
 .toast.leaving {
   opacity: 0;
   transform: translateY(6px);
+}
+
+/* ── Payoff chart (P&L analysis) ──────────────────────────────────────── */
+
+.payoff-card {
+  margin-top: 14px;
+}
+
+.payoff-host {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  /* uPlot resets its own background; we keep it white/card */
+  background: var(--card);
+}
+
+/* Override uPlot defaults to match design tokens */
+.payoff-host .u-wrap {
+  width: 100% !important;
+}
+.payoff-host .u-hz .u-cursor-x {
+  border-left-color: var(--muted);
+}
+.payoff-host .u-hz .u-cursor-y {
+  border-top-color: var(--muted);
+}
+
+.payoff-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 0 4px;
+}
+
+.payoff-slider-label {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.payoff-slider-rhs {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: right;
+}
+
+.payoff-slider-val {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--ink);
+  min-width: 52px;
+  text-align: center;
+}
+
+input[type="range"].payoff-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.payoff-legend-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.payoff-legend-row .plg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.payoff-legend-row .plg-line {
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.payoff-iv-note {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .payoff-slider-row {
+    flex-wrap: wrap;
+  }
+  input[type="range"].payoff-slider {
+    width: 100%;
+    flex-basis: 100%;
+    order: 3;
+  }
 }
