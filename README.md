@@ -213,7 +213,13 @@ cd backend && pytest
 cd frontend
 npm run build            # -> backend/app/static
 npm run dev              # Vite on :5173, proxies /api and /ws to :8000
+
+# standalone single-file binary (run from repo root, inside backend/.venv)
+python scripts/build_binary.py --frontend   # -> dist/ibpnl-<os>-<arch>[.exe]
 ```
+
+The binary is per-platform (no cross-compile); build on each target OS or use
+the `Build binaries` CI workflow. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 In dev you can run the Vite server (`npm run dev`) alongside `ibpnl` for
 hot-reloading the UI while the backend streams real or mock data.
