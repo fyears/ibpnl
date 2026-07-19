@@ -100,8 +100,10 @@ The script builds the frontend, ensures PyInstaller is installed, runs
 cd backend && pytest            # backend unit tests (uses mock provider)
 ```
 
-End-to-end UI testing is done with the chrome-devtools MCP against the running
-mock backend — see `docs/PLAN.md` M5.
+End-to-end UI testing is done through a **chrome-devtools skill** against the
+running mock backend — invoke whichever is available (`chrome-devtools`,
+`chrome-devtools-mcp`, or `chrome-devtools-cli`); if none is installed, guide the
+user to install one first. See `docs/PLAN.md` M5.
 
 ## Project layout
 

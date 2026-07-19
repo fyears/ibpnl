@@ -197,9 +197,12 @@ with just the methods under test (see `tests/test_ib_provider.py`). The mock
 provider is exercised directly (`tests/test_mock_provider.py`).
 
 ### There is no frontend test harness
-Verify UI changes by driving the running **mock** backend with the
-chrome-devtools MCP (navigate, snapshot, screenshot, read console). Keep the
-browser console clean — frontend errors are logged with an `[ibpnl]` prefix.
+Verify UI changes by driving the running **mock** backend through a
+**chrome-devtools skill** — invoke whichever is available (`chrome-devtools`,
+`chrome-devtools-mcp`, or `chrome-devtools-cli`) to navigate, snapshot,
+screenshot, and read the console. If none is installed, tell the user and guide
+them to install one. Keep the browser console clean — frontend errors are logged
+with an `[ibpnl]` prefix.
 
 ### Screenshots for docs/README MUST use mock data
 Never commit a screenshot of a real account/positions. Run `ibpnl --provider
