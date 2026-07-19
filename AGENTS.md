@@ -90,10 +90,9 @@ in CI (win/linux/mac matrix, attaches to `v*` releases). Binaries are **not**
 cross-platform — build on each target OS. See `docs/DEVELOPMENT.md`.
 
 UI has **no test harness** — verify changes by driving the running **mock**
-backend through a **chrome-devtools skill**: invoke whichever is available
-(`chrome-devtools`, `chrome-devtools-mcp`, or `chrome-devtools-cli`) to navigate,
-snapshot, screenshot, and read the console. If none is installed, tell the user
-and point them at installing one before proceeding. Keep the console clean;
+backend through the **`chrome-devtools-cli` skill** (navigate, snapshot,
+screenshot, read the console). If it is not installed, tell the user and guide
+them to install it before proceeding. Keep the console clean;
 frontend errors log with an `[ibpnl]` prefix.
 
 ## Before you touch...
