@@ -267,7 +267,6 @@ export class PositionsTable {
       <div class="table-wrap">
         <table class="positions">
           <thead><tr>
-            <th class="col-sel" scope="col" aria-label="Combo select"></th>
             ${HEADERS.map(
               (h) => `<th data-col="${h.id}" scope="col">${h.label}<span class="arrow"></span></th>`,
             ).join("")}
@@ -599,7 +598,7 @@ export class PositionsTable {
       })
       .join("");
     const tip = disabled ? "Clear the current combo selection first" : "Combo quick-select";
-    return `<tr class="quick-row"><td colspan="${HEADERS.length + 2}">
+    return `<tr class="quick-row"><td colspan="${HEADERS.length + 1}">
       <div class="quick-inner"><span class="quick-lead" title="${tip}">Combo:</span>${chips}</div>
     </td></tr>`;
   }
@@ -612,7 +611,6 @@ export class PositionsTable {
       return `
         <tr class="group-row ${expanded ? "" : "collapsed"}" data-row-id="${row.id}"
             aria-expanded="${expanded}">
-          <td class="col-sel"></td>
           <td><span class="caret">▾</span>${escapeHtml(r.symbol)}
             <span class="group-meta">${assetClassLabel(g.asset_class)} · ${g.positions.length} legs</span>
           </td>
@@ -635,10 +633,12 @@ export class PositionsTable {
       const q = leg.quote;
       return `
         <tr class="flat-row" data-nav="${conId}">
-          <td class="col-sel">${isOptionLeg(leg) ? this.selectBox(conId, r.symbol) : ""}</td>
-          <td>
-            <a class="flat-sym mono" href="#/i/${conId}">${escapeHtml(r.symbol)}</a>
-            <span class="group-meta">${assetClassLabel(r.group.asset_class)} · ${escapeHtml(legLabel(inst))}</span>
+          <td class="sym-cell">
+            <span class="sym-text">
+              <a class="flat-sym mono" href="#/i/${conId}">${escapeHtml(r.symbol)}</a>
+              <span class="group-meta">${assetClassLabel(r.group.asset_class)} · ${escapeHtml(legLabel(inst))}</span>
+            </span>
+            ${isOptionLeg(leg) ? `<span class="sel-slot">${this.selectBox(conId, r.symbol)}</span>` : ""}
           </td>
           <td class="num">${sideBadge(leg.quantity)} ${fmtQty(Math.abs(leg.quantity))}</td>
           <td class="num${this.flashCls(conId, "price")}">${fmtPrice(q?.last)}</td>
@@ -658,10 +658,12 @@ export class PositionsTable {
     const q = leg.quote;
     return `
       <tr class="leg-row" data-nav="${conId}">
-        <td class="col-sel">${isOptionLeg(leg) ? this.selectBox(conId, r.groupSymbol) : ""}</td>
-        <td>
-          <a class="leg-link mono" href="#/i/${conId}">${escapeHtml(legLabel(inst))}</a>
-          <span class="leg-kind">${escapeHtml(inst.exchange)}</span>
+        <td class="sym-cell">
+          <span class="sym-text">
+            <a class="leg-link mono" href="#/i/${conId}">${escapeHtml(legLabel(inst))}</a>
+            <span class="leg-kind">${escapeHtml(inst.exchange)}</span>
+          </span>
+          ${isOptionLeg(leg) ? `<span class="sel-slot">${this.selectBox(conId, r.groupSymbol)}</span>` : ""}
         </td>
         <td class="num">${sideBadge(leg.quantity)} ${fmtQty(Math.abs(leg.quantity))}</td>
         <td class="num${this.flashCls(conId, "price")}">${fmtPrice(q?.last)}</td>
