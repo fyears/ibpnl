@@ -1,5 +1,4 @@
 /* App styles. Layout + components. Mobile-first where practical. */
-@import "../../node_modules/uplot/dist/uPlot.min.css";
 
 * {
   box-sizing: border-box;
@@ -1128,15 +1127,7 @@ tr.quick-row .quick-inner {
   position: relative;
   min-width: 0;
   width: 100%;
-  /* uPlot manages its own inner sizing via inline styles; do NOT override
-     .u-wrap width or the canvas collapses to 0. */
   background: var(--card);
-}
-.payoff-host .u-hz .u-cursor-x {
-  border-left-color: var(--muted);
-}
-.payoff-host .u-hz .u-cursor-y {
-  border-top-color: var(--muted);
 }
 
 .payoff-slider-row {

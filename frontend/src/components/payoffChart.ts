@@ -1,52 +1,50 @@
-// P&L payoff curve analysis — uPlot + Black-Scholes.
+// P&L payoff curve analysis — Plotly + Black-Scholes.
 //
-// Renders: today's curve (blue, bold), N ghost decay curves (faint), a
-// slider-selected curve (amber highlight), the expiry hockey-stick (red
-// dashed), profit/loss fills, and a live vertical spot line.
+// Draws the combo's profit/loss across underlying price for several
+// time-to-expiry slices: today's curve, N faint time-decay "ghost" curves, a
+// slider-selected highlight that converges onto the at-expiry hockey-stick,
+// plus a live vertical spot line, strike lines and a zero reference line.
+//
+// Every curve is priced with Black-Scholes (lib/blackscholes.ts) — the shape
+// is computed, never faked. Plotly gives us native fills and unified hover
+// tooltips (underlying price + P&L for today / selected day / expiry).
 
-import uPlot from "uplot";
+import Plotly from "plotly.js";
 import type { ComboLegInfo } from "../api/types";
 import { bsPrice } from "../lib/blackscholes";
 
 // ── constants ──────────────────────────────────────────────────────────────
 
-const N_GHOST  = 4;        // intermediate ghost curves
-const N_PTS    = 150;      // x-axis resolution
-const DEF_IV   = 0.25;     // fallback IV when greeks not yet received
-const RATE     = 0.045;    // risk-free rate (mirrors backend)
-const CHT_H    = 320;      // chart height in px
+const N_GHOST = 4;      // intermediate time-decay ghost curves
+const N_PTS   = 160;    // x-axis resolution
+const DEF_IV  = 0.25;   // fallback IV when greeks not yet received
+const RATE    = 0.045;  // risk-free rate (mirrors backend)
 
-// series indices in uPlot data[] (data[0] = x):
-//   0 = x, 1 = today, 2..5 = ghosts, 6 = selected, 7 = expiry
-const SI_GHOST0 = 2;
-const SI_SEL    = SI_GHOST0 + N_GHOST; // = 6
+// design-token colors (light mode)
+const C_TODAY  = "#16508f"; // accent blue
+const C_SEL    = "#f5a623"; // amber
+const C_EXPIRY = "#c93b36"; // down/red
+const C_GHOST  = "rgba(22,80,143,0.22)";
+const C_MUTED  = "#5d6673";
 
 export type CostBasis = "mark" | "position";
 
-// ── helpers ────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────
 
 function dteDays(expiry: string): number {
   const y = +expiry.slice(0, 4), m = +expiry.slice(4, 6) - 1, d = +expiry.slice(6, 8);
   return Math.max(0, Math.ceil((Date.UTC(y, m, d) - Date.now()) / 86_400_000));
 }
 
-function numFmt(v: number): string {
-  if (Math.abs(v) >= 10_000) return v.toFixed(0);
-  if (Math.abs(v) >= 1_000)  return v.toFixed(2);
-  if (Math.abs(v) < 1)       return v.toFixed(4);
-  return v.toFixed(2);
-}
-
-// ── class ──────────────────────────────────────────────────────────────────
+// ── class ────────────────────────────────────────────────────────────────
 
 export class PayoffChart {
-  private chart: uPlot | null = null;
   private readonly host: HTMLElement;
   private readonly legs: ComboLegInfo[];
   private readonly mult: number;         // shared contract multiplier
   private readonly nearestDte: number;   // calendar days to nearest expiry
   private readonly ghostDays: number[];  // intermediate curve days
-  private readonly xArr: number[];       // underlying price grid (N_PTS points)
+  private readonly xArr: number[];       // underlying price grid
 
   // live per-leg state
   private legIv   = new Map<number, number>(); // implied vol
@@ -56,12 +54,14 @@ export class PayoffChart {
   private spot: number | null = null;
   private costBasis: CostBasis = "mark";
   private daysElapsed = 0;
-  private ro: ResizeObserver | null = null;
+  private built = false;
+  private currency = "USD";
 
   constructor(host: HTMLElement, legs: ComboLegInfo[]) {
     this.host = host;
     this.legs = legs;
     this.mult = legs[0]?.instrument.multiplier ?? 1;
+    this.currency = legs[0]?.instrument.currency ?? "USD";
 
     // slider max = nearest leg expiry
     const dtes = legs
@@ -69,16 +69,13 @@ export class PayoffChart {
       .map((l) => dteDays(l.instrument.expiry!));
     this.nearestDte = dtes.length ? Math.min(...dtes) : 0;
 
-    // N_GHOST evenly-spaced intermediate days (excluding today and expiry)
+    // N_GHOST evenly-spaced intermediate days (between today and nearest expiry)
     this.ghostDays = [];
     if (this.nearestDte > 1) {
       for (let k = 1; k <= N_GHOST; k++) {
         const d = Math.round((k / (N_GHOST + 1)) * this.nearestDte);
         this.ghostDays.push(Math.max(1, Math.min(d, this.nearestDte - 1)));
       }
-    } else {
-      // pad with zeros so the data array shape stays constant
-      for (let k = 0; k < N_GHOST; k++) this.ghostDays.push(0);
     }
 
     // x-axis: strike range ± 22%
@@ -88,8 +85,6 @@ export class PayoffChart {
     const pad = center * 0.22;
     const lo = Math.max(sMin - pad, 1), hi = sMax + pad;
     this.xArr = Array.from({ length: N_PTS }, (_, i) => lo + (i / (N_PTS - 1)) * (hi - lo));
-
-    this.buildChart();
   }
 
   // ── P&L computation ──────────────────────────────────────────────────────
@@ -106,6 +101,7 @@ export class PayoffChart {
     return cost;
   }
 
+  /** P&L (in currency) across the x grid at `days` elapsed from today. */
   private computeSeries(days: number): number[] {
     const cost = this.entryCost();
     const mult = this.mult;
@@ -127,212 +123,182 @@ export class PayoffChart {
     });
   }
 
-  private buildAllData(): uPlot.AlignedData {
-    const d: number[][] = [this.xArr];
-    d.push(this.computeSeries(0));                                // today
-    for (const gd of this.ghostDays) d.push(this.computeSeries(gd)); // ghosts
-    d.push(this.computeSeries(this.daysElapsed));                // selected
-    d.push(this.computeSeries(this.nearestDte));                 // expiry
-    return d as uPlot.AlignedData;
-  }
+  // ── Plotly construction ────────────────────────────────────────────────
 
-  // ── uPlot construction ───────────────────────────────────────────────────
+  private traces(): Partial<Plotly.PlotData>[] {
+    const x = this.xArr;
+    const out: Partial<Plotly.PlotData>[] = [];
 
-  private buildChart(): void {
-    if (this.chart) { this.chart.destroy(); this.chart = null; }
-    this.host.innerHTML = "";
+    // ghost decay curves (faint, no hover — context only)
+    for (const gd of this.ghostDays) {
+      out.push({
+        x, y: this.computeSeries(gd),
+        mode: "lines", type: "scatter",
+        line: { color: C_GHOST, width: 1 },
+        hoverinfo: "skip",
+        showlegend: false,
+        name: `+${gd}d`,
+      });
+    }
 
-    const self = this;
-
-    // Combined plugin: fills + reference lines drawn in a single draw pass.
-    const plugin: uPlot.Plugin = {
-      hooks: {
-        draw: (u: uPlot) => {
-          const ctx  = u.ctx;
-          const left = u.bbox.left   / devicePixelRatio;
-          const top  = u.bbox.top    / devicePixelRatio;
-          const w    = u.bbox.width  / devicePixelRatio;
-          const h    = u.bbox.height / devicePixelRatio;
-          const zeroY = u.valToPos(0, "y", true);
-
-          ctx.save();
-
-          // ── zero reference line ──
-          ctx.strokeStyle = "rgba(93,102,115,0.45)";
-          ctx.lineWidth   = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(left, zeroY); ctx.lineTo(left + w, zeroY);
-          ctx.stroke();
-
-          // ── strike verticals ──
-          ctx.lineWidth   = 1;
-          ctx.setLineDash([3, 3]);
-          for (const leg of self.legs) {
-            const k = leg.instrument.strike;
-            if (!k) continue;
-            const kx = u.valToPos(k, "x", true);
-            ctx.strokeStyle = "rgba(93,102,115,0.35)";
-            ctx.beginPath();
-            ctx.moveTo(kx, top); ctx.lineTo(kx, top + h); ctx.stroke();
-          }
-
-          // ── live spot line ──
-          if (self.spot != null) {
-            const sx = u.valToPos(self.spot, "x", true);
-            ctx.strokeStyle = "#16508f";
-            ctx.lineWidth   = 1.5;
-            ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.moveTo(sx, top); ctx.lineTo(sx, top + h); ctx.stroke();
-          }
-
-          ctx.restore();
-        },
-
-        // profit/loss fill for the selected curve only
-        drawSeries: (u: uPlot, si: number) => {
-          if (si !== SI_SEL) return;
-          const ctx  = u.ctx;
-          const left = u.bbox.left   / devicePixelRatio;
-          const top  = u.bbox.top    / devicePixelRatio;
-          const w    = u.bbox.width  / devicePixelRatio;
-          const h    = u.bbox.height / devicePixelRatio;
-          const zeroY = u.valToPos(0, "y", true);
-          const ys = u.data[SI_SEL] as number[];
-          const xs = u.data[0] as number[];
-          const n  = xs.length;
-
-          const drawFill = (above: boolean) => {
-            ctx.save();
-            ctx.beginPath();
-            if (above) ctx.rect(left, top, w, Math.max(0, zeroY - top));
-            else       ctx.rect(left, zeroY, w, Math.max(0, top + h - zeroY));
-            ctx.clip();
-            ctx.beginPath();
-            for (let i = 0; i < n; i++) {
-              const px = u.valToPos(xs[i], "x", true);
-              const py = u.valToPos(ys[i], "y", true);
-              i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-            }
-            ctx.lineTo(u.valToPos(xs[n - 1], "x", true), zeroY);
-            ctx.lineTo(u.valToPos(xs[0],     "x", true), zeroY);
-            ctx.closePath();
-            ctx.fillStyle = above ? "rgba(14,124,74,0.12)" : "rgba(201,59,54,0.12)";
-            ctx.fill();
-            ctx.restore();
-          };
-          drawFill(true);
-          drawFill(false);
-        },
-      },
-    };
-
-    const ghostSeries: uPlot.Series[] = Array.from({ length: N_GHOST }, (_, i) => ({
-      stroke: `rgba(22,80,143,${i < this.ghostDays.filter(d => d > 0).length ? "0.20" : "0"})`,
-      width: 1, points: { show: false }, label: "",
-    }));
-
-    const opts: uPlot.Options = {
-      width:  Math.max(this.host.clientWidth || 600, 300),
-      height: CHT_H,
-      scales: { x: { time: false }, y: {} },
-      axes: [
-        {
-          label: "Underlying price",
-          values: (_u: uPlot, vals: number[]) => vals.map((v) => numFmt(v)),
-          gap: 4, size: 36, labelSize: 16,
-        },
-        {
-          label: "P&L",
-          values: (_u: uPlot, vals: number[]) =>
-            vals.map((v) => (v > 0 ? "+" : "") + numFmt(v)),
-          gap: 4, size: 72, labelSize: 16,
-        },
-      ],
-      series: [
-        {},
-        // today
-        { stroke: "#16508f", width: 2.0, points: { show: false }, label: "Today" },
-        // ghosts
-        ...ghostSeries,
-        // selected (slider)
-        { stroke: "#f5a623", width: 2.5, points: { show: false },
-          label: `+${this.daysElapsed}d` },
-        // expiry
-        { stroke: "#c93b36", width: 1.5, points: { show: false },
-          label: "At expiry", dash: [5, 3] },
-      ],
-      legend: { show: false },
-      cursor:  { points: { show: false } },
-      plugins: [plugin],
-    };
-
-    this.chart = new uPlot(opts, this.buildAllData(), this.host);
-
-    // auto-resize with container
-    this.ro = new ResizeObserver(() => {
-      const w = this.host.clientWidth;
-      if (w > 0 && this.chart) this.chart.setSize({ width: w, height: CHT_H });
+    // today (blue)
+    out.push({
+      x, y: this.computeSeries(0),
+      mode: "lines", type: "scatter",
+      line: { color: C_TODAY, width: 2 },
+      name: "Today",
+      hovertemplate: "Today: %{y:,.0f}<extra></extra>",
     });
-    this.ro.observe(this.host);
+
+    // at-expiry hockey-stick (red dashed)
+    out.push({
+      x, y: this.computeSeries(this.nearestDte),
+      mode: "lines", type: "scatter",
+      line: { color: C_EXPIRY, width: 1.5, dash: "dash" },
+      name: "At expiry",
+      hovertemplate: "At expiry: %{y:,.0f}<extra></extra>",
+    });
+
+    // slider-selected curve (amber, bold) — drawn last so it sits on top
+    out.push({
+      x, y: this.computeSeries(this.daysElapsed),
+      mode: "lines", type: "scatter",
+      line: { color: C_SEL, width: 2.5 },
+      name: this.daysElapsed === 0 ? "Today (selected)" : `+${this.daysElapsed}d`,
+      hovertemplate: `+${this.daysElapsed}d: %{y:,.0f}<extra></extra>`,
+    });
+
+    return out;
   }
 
-  // ── public setters ────────────────────────────────────────────────────────
+  /** Vertical strike/spot lines + horizontal zero line as Plotly shapes. */
+  private shapes(): Partial<Plotly.Shape>[] {
+    const shapes: Partial<Plotly.Shape>[] = [
+      // zero P&L reference
+      {
+        type: "line", xref: "paper", yref: "y",
+        x0: 0, x1: 1, y0: 0, y1: 0,
+        line: { color: C_MUTED, width: 1, dash: "dot" },
+        layer: "below",
+      },
+    ];
+    // strike verticals
+    const seen = new Set<number>();
+    for (const leg of this.legs) {
+      const k = leg.instrument.strike;
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      shapes.push({
+        type: "line", xref: "x", yref: "paper",
+        x0: k, x1: k, y0: 0, y1: 1,
+        line: { color: "rgba(93,102,115,0.35)", width: 1, dash: "dot" },
+        layer: "below",
+      });
+    }
+    // live spot line
+    if (this.spot != null) {
+      shapes.push({
+        type: "line", xref: "x", yref: "paper",
+        x0: this.spot, x1: this.spot, y0: 0, y1: 1,
+        line: { color: C_TODAY, width: 1.5 },
+        layer: "below",
+      });
+    }
+    return shapes;
+  }
 
-  /** Update implied vol for one leg → recompute and redraw. */
+  private annotations(): Partial<Plotly.Annotations>[] {
+    if (this.spot == null) return [];
+    return [{
+      x: this.spot, xref: "x", yref: "paper", y: 1,
+      text: `Spot ${this.spot.toFixed(0)}`,
+      showarrow: false, font: { size: 10, color: C_TODAY },
+      bgcolor: "rgba(255,255,255,0.75)",
+      xanchor: "left", yanchor: "bottom",
+    }];
+  }
+
+  private layout(): Partial<Plotly.Layout> {
+    return {
+      margin: { l: 64, r: 12, t: 10, b: 40 },
+      height: 340,
+      paper_bgcolor: "#ffffff",
+      plot_bgcolor: "#ffffff",
+      font: { family: "Segoe UI, system-ui, sans-serif", size: 11, color: "#131820" },
+      xaxis: {
+        title: { text: "Underlying price", font: { size: 11, color: C_MUTED } },
+        gridcolor: "#eef1f5", zeroline: false, tickformat: ",d",
+      },
+      yaxis: {
+        title: { text: `P&L (${this.currency})`, font: { size: 11, color: C_MUTED } },
+        gridcolor: "#eef1f5", zeroline: false, tickformat: ",d",
+      },
+      hovermode: "x unified",
+      hoverlabel: { bgcolor: "#ffffff", bordercolor: "#e2e6ec", font: { size: 11 } },
+      shapes: this.shapes(),
+      annotations: this.annotations(),
+      showlegend: false,
+      dragmode: false,
+    };
+  }
+
+  private readonly config: Partial<Plotly.Config> = {
+    displayModeBar: false,
+    responsive: true,
+    scrollZoom: false,
+    doubleClick: false,
+  };
+
+  private render(): void {
+    if (!this.built) {
+      void Plotly.newPlot(this.host, this.traces(), this.layout(), this.config);
+      this.built = true;
+    } else {
+      void Plotly.react(this.host, this.traces(), this.layout(), this.config);
+    }
+  }
+
+  // ── public API ─────────────────────────────────────────────────────────
+
+  /** Draw the chart for the first time. Call once the host has a real width. */
+  mount(): void {
+    this.render();
+  }
+
   setIv(conId: number, iv: number): void {
     this.legIv.set(conId, iv);
-    this.rerender();
+    if (this.built) this.render();
   }
 
-  /** Update the current option price used as the mark cost basis. */
   setMarkPrice(conId: number, price: number): void {
     this.legMark.set(conId, price);
-    this.rerender();
+    if (this.built) this.render();
   }
 
-  /** Set the position average fill price for one leg (position basis). */
   setAvgPrice(conId: number, avgPrice: number): void {
     this.legAvg.set(conId, avgPrice);
   }
 
-  /** Update the live underlying spot price (moves the vertical line). */
   setSpot(spot: number): void {
     this.spot = spot;
-    this.rerender();
+    if (this.built) this.render();
   }
 
   /** Slider: days elapsed from today (0 = today, max = nearestDte). */
   setDaysElapsed(days: number): void {
     this.daysElapsed = Math.max(0, Math.min(days, this.nearestDte));
-    if (!this.chart) return;
-    // update only the selected series label + its data
-    const data = this.chart.data as number[][];
-    data[SI_SEL] = this.computeSeries(this.daysElapsed);
-    this.chart.setData(data as uPlot.AlignedData, false);
-    // update series label shown in the combo page slider readout (external)
-    this.chart.series[SI_SEL].label = `+${this.daysElapsed}d`;
+    if (this.built) this.render();
   }
 
-  /** Switch cost basis and redraw all curves. */
   setCostBasis(basis: CostBasis): void {
     this.costBasis = basis;
-    this.rerender();
+    if (this.built) this.render();
   }
 
   get maxDte(): number { return this.nearestDte; }
 
-  /** Full redraw of all series. */
-  private rerender(): void {
-    if (!this.chart) return;
-    this.chart.setData(this.buildAllData(), false);
-  }
-
   destroy(): void {
-    this.ro?.disconnect();
-    this.chart?.destroy();
-    this.chart = null;
+    if (this.built) Plotly.purge(this.host);
+    this.built = false;
   }
 }
-

@@ -498,11 +498,12 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     if (disposed || !meta) return;
     const host = $("#payoff-host") as HTMLElement | null;
     if (!host) return;
-    // Reveal the section BEFORE constructing uPlot so the host has a real
-    // width — building it while display:none makes uPlot size the canvas to 0.
+    // Reveal the section before mounting so the host has a real width.
     $("#payoff-section")!.hidden = false;
     payoff?.destroy();
     payoff = new PayoffChart(host, meta.legs);
+    // Seed all leg data first; setters no-op on render until mount() is called,
+    // so the chart paints exactly once with the full initial state.
     let allHaveIv = true;
     for (let i = 0; i < meta.legs.length; i++) {
       const leg = meta.legs[i];
@@ -529,6 +530,7 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     posBasisBtn.classList.toggle("disabled", !hasAllPositions);
     syncCostBasisSeg();
     $("#payoff-iv-note")!.textContent = allHaveIv ? "" : "IV estimated";
+    payoff.mount();
   };
 
   const load = async () => {
