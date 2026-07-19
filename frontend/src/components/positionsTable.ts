@@ -623,7 +623,7 @@ export class PositionsTable {
           <td class="num"><span class="${pnlClass(g.total_unrealized_pnl)}">${fmtPnl(g.total_unrealized_pnl, g.currency)}</span></td>
           <td class="num">${fmtMoney(g.total_market_value, g.currency)}</td>
           <td></td>
-        </tr>${this.quickRow(r.symbol)}`;
+        </tr>${expanded ? this.quickRow(r.symbol) : ""}`;
     }
 
     if (r.kind === "flat") {
