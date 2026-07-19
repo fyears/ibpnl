@@ -46,7 +46,7 @@ jobs:
           pip install "pyinstaller>=6.0"
 
       - name: Build binary
-        run: python scripts/build_binary.py --frontend
+        run: python scripts/build_binary.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

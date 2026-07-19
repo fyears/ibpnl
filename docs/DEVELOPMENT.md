@@ -75,13 +75,14 @@ with no Python or Node installed — copy the one file over and run it.
 
 ```bash
 # from the repo root, inside backend/.venv (so ib_async etc. are importable)
-python scripts/build_binary.py --frontend
+python scripts/build_binary.py
 # -> dist/ibpnl-<os>-<arch>[.exe]
 ./dist/ibpnl-windows-x64.exe --provider ib      # runs like the ibpnl command
 ```
 
-The script builds the frontend, ensures PyInstaller is installed, runs
-`backend/ibpnl.spec`, and stages a platform-named binary into `dist/`.
+The script **always rebuilds the frontend** (so the binary can never bundle a
+stale UI), ensures PyInstaller is installed, runs `backend/ibpnl.spec`, and
+stages a platform-named binary into `dist/`.
 
 - **Not cross-platform.** A binary is tied to the OS and CPU arch it was built
   on. Build on each target, or use the `Build binaries` GitHub Actions workflow

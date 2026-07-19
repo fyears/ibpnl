@@ -80,8 +80,8 @@ npm run check                # tsc --noEmit only
 # tests
 cd backend && pytest         # uses the mock provider / a fake IB object
 
-# standalone binary (bundles runtime + deps + built frontend into one file)
-python scripts/build_binary.py --frontend   # -> dist/ibpnl-<os>-<arch>[.exe]
+# standalone binary (rebuilds the frontend, then bundles runtime + deps + UI into one file)
+python scripts/build_binary.py   # -> dist/ibpnl-<os>-<arch>[.exe]
 ```
 
 Packaging lives in `backend/ibpnl.spec` (+ `backend/packaging/entry.py`), driven

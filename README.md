@@ -215,7 +215,7 @@ npm run build            # -> backend/app/static
 npm run dev              # Vite on :5173, proxies /api and /ws to :8000
 
 # standalone single-file binary (run from repo root, inside backend/.venv)
-python scripts/build_binary.py --frontend   # -> dist/ibpnl-<os>-<arch>[.exe]
+python scripts/build_binary.py   # rebuilds the UI + bundles -> dist/ibpnl-<os>-<arch>[.exe]
 ```
 
 The binary is per-platform (no cross-compile); build on each target OS or use

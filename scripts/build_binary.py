@@ -5,11 +5,11 @@ Steps: build the frontend into backend/app/static, ensure PyInstaller is
 available, run backend/ibpnl.spec, then copy the result to a platform/arch
 named file under dist/.
 
-Usage (from the repo root, ideally inside backend/.venv):
+Usage (from the repo root, inside backend/.venv):
 
-    python scripts/build_binary.py            # skip npm if static already fresh
-    python scripts/build_binary.py --frontend # force a frontend rebuild
+    python scripts/build_binary.py            # always rebuilds the frontend first
 
+The frontend is always rebuilt so the binary can never bundle a stale UI.
 Cross-compiling is not supported: run this on each target OS (or use CI).
 """
 
@@ -43,10 +43,8 @@ def _npm() -> str:
     return npm
 
 
-def build_frontend(force: bool) -> None:
-    if STATIC.joinpath("index.html").is_file() and not force:
-        print(f"Frontend already built at {STATIC} (use --frontend to force).")
-        return
+def build_frontend() -> None:
+    """Always rebuild the frontend so the binary never bundles a stale UI."""
     npm = _npm()
     if not FRONTEND.joinpath("node_modules").is_dir():
         _run([npm, "ci"], cwd=FRONTEND)
@@ -97,15 +95,12 @@ def stage_output(built: Path) -> Path:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Build a single-file ibpnl binary.")
-    ap.add_argument(
-        "--frontend",
-        action="store_true",
-        help="Force a frontend rebuild even if app/static already exists",
-    )
-    args = ap.parse_args()
+    # No flags: the frontend is always rebuilt so the binary can't ship a stale UI.
+    argparse.ArgumentParser(
+        description="Build a single-file ibpnl binary (always rebuilds the frontend)."
+    ).parse_args()
 
-    build_frontend(force=args.frontend)
+    build_frontend()
     ensure_pyinstaller()
     built = run_pyinstaller()
     dest = stage_output(built)
