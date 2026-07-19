@@ -25,6 +25,7 @@ import {
   pnlClass,
 } from "../lib/format";
 import { getSettings, onSettingsChange } from "../state/settings";
+import { PayoffChart, type CostBasis } from "../components/payoffChart";
 
 interface Grain {
   key: string;
@@ -109,6 +110,31 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
           </div>
         </aside>
       </div>
+      <div class="chart-card payoff-card" id="payoff-section" hidden>
+        <div class="chart-toolbar">
+          <span class="eyebrow">P&amp;L Analysis</span>
+          <div class="seg" id="cost-basis-seg">
+            <button type="button" data-basis="mark">Mark</button>
+            <button type="button" data-basis="position">Avg cost</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="payoff-iv-note" id="payoff-iv-note"></span>
+        </div>
+        <div class="payoff-host" id="payoff-host"></div>
+        <div class="payoff-slider-row">
+          <span class="payoff-slider-label">Today</span>
+          <input type="range" class="payoff-slider" id="payoff-slider" min="0" max="0" value="0" step="1">
+          <span class="payoff-slider-val" id="payoff-slider-val">+0d</span>
+          <span class="payoff-slider-rhs" id="payoff-slider-rhs">Expiry</span>
+        </div>
+        <div class="payoff-legend-row">
+          <span class="plg"><i class="plg-line" style="background:#16508f;height:2px;width:20px;display:inline-block"></i>&nbsp;Today</span>
+          <span class="plg"><i class="plg-line" style="background:rgba(22,80,143,0.35);height:1px;width:20px;display:inline-block"></i>&nbsp;Decay</span>
+          <span class="plg"><i class="plg-line" style="background:#f5a623;height:2.5px;width:20px;display:inline-block"></i>&nbsp;Selected</span>
+          <span class="plg"><i class="plg-line" style="border-top:2px dashed #c93b36;width:20px;display:inline-block"></i>&nbsp;At expiry</span>
+          <span class="plg"><i class="plg-line" style="background:#16508f;height:1.5px;width:20px;display:inline-block"></i>&nbsp;Spot</span>
+        </div>
+      </div>
     </div>
   `;
 
@@ -128,6 +154,12 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
   const held = new Map<number, Position>();
   let formingBar: { time: number; open: number; high: number; low: number; close: number } | null =
     null;
+
+  // payoff chart state
+  let payoff: PayoffChart | null = null;
+  let costBasis: CostBasis = "mark";
+  const legMarkPrice = new Map<number, number>(); // option_price from greeks
+  const legUndPrice = new Map<number, number>();  // und_price from greeks (same underlying)
 
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => outlet.querySelector<T>(sel);
 
@@ -431,7 +463,73 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
   });
   syncSegs();
 
+  // ---------- payoff cost-basis toggle ----------
+
+  const syncCostBasisSeg = () => {
+    outlet.querySelectorAll<HTMLButtonElement>("[data-basis]").forEach((b) => {
+      b.classList.toggle("active", b.dataset.basis === costBasis);
+    });
+  };
+
+  outlet.querySelectorAll<HTMLButtonElement>("[data-basis]").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.disabled) return;
+      costBasis = (b.dataset.basis ?? "mark") as CostBasis;
+      syncCostBasisSeg();
+      payoff?.setCostBasis(costBasis);
+    });
+  });
+  syncCostBasisSeg();
+
+  const sliderEl = outlet.querySelector<HTMLInputElement>("#payoff-slider")!;
+  sliderEl.addEventListener("input", () => {
+    const days = Number(sliderEl.value);
+    payoff?.setDaysElapsed(days);
+    $("#payoff-slider-val")!.textContent = days === 0 ? "Today" : `+${days}d`;
+  });
+
   // ---------- data flow ----------
+
+  const initPayoff = async () => {
+    if (!meta || disposed) return;
+    const results = await Promise.allSettled(
+      meta.legs.map((l) => api.greeks(l.instrument.con_id)),
+    );
+    if (disposed || !meta) return;
+    const host = $("#payoff-host") as HTMLElement | null;
+    if (!host) return;
+    // Reveal the section BEFORE constructing uPlot so the host has a real
+    // width — building it while display:none makes uPlot size the canvas to 0.
+    $("#payoff-section")!.hidden = false;
+    payoff?.destroy();
+    payoff = new PayoffChart(host, meta.legs);
+    let allHaveIv = true;
+    for (let i = 0; i < meta.legs.length; i++) {
+      const leg = meta.legs[i];
+      const cid = leg.instrument.con_id;
+      const r = results[i];
+      const g = r.status === "fulfilled" ? r.value : null;
+      if (g?.iv != null) payoff.setIv(cid, g.iv); else allHaveIv = false;
+      if (g?.option_price != null) { legMarkPrice.set(cid, g.option_price); payoff.setMarkPrice(cid, g.option_price); }
+      if (g?.und_price != null) legUndPrice.set(cid, g.und_price);
+      const pos = held.get(cid);
+      const avg = pos?.avg_price ?? pos?.avg_cost;
+      if (avg != null) payoff.setAvgPrice(cid, avg);
+    }
+    const spot = [...legUndPrice.values()].find((v) => v > 0);
+    if (spot != null) payoff.setSpot(spot);
+    const sl = $<HTMLInputElement>("#payoff-slider")!;
+    sl.max = String(payoff.maxDte);
+    sl.value = "0";
+    $("#payoff-slider-val")!.textContent = "Today";
+    $("#payoff-slider-rhs")!.textContent = `Expiry (+${payoff.maxDte}d)`;
+    const hasAllPositions = meta.legs.every((l) => held.has(l.instrument.con_id));
+    const posBasisBtn = $<HTMLButtonElement>('[data-basis="position"]')!;
+    posBasisBtn.disabled = !hasAllPositions;
+    posBasisBtn.classList.toggle("disabled", !hasAllPositions);
+    syncCostBasisSeg();
+    $("#payoff-iv-note")!.textContent = allHaveIv ? "" : "IV estimated";
+  };
 
   const load = async () => {
     // Held positions give us avg cost (cost line) and per-leg P&L.
@@ -445,6 +543,7 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     }
     if (disposed) return;
     await loadBars();
+    void initPayoff();
   };
 
   const unsub = stream.onMessage((msg) => {
@@ -453,6 +552,19 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
       const cid = msg.quote.con_id;
       if (ratioOf(cid) === 0) return; // not one of our legs
       applyLegQuote(msg.quote);
+    } else if (msg.type === "greeks") {
+      const cid = msg.greeks.con_id;
+      if (ratioOf(cid) === 0) return;
+      const g = msg.greeks;
+      if (g.iv != null) payoff?.setIv(cid, g.iv);
+      if (g.option_price != null) {
+        legMarkPrice.set(cid, g.option_price);
+        payoff?.setMarkPrice(cid, g.option_price);
+      }
+      if (g.und_price != null) {
+        legUndPrice.set(cid, g.und_price);
+        payoff?.setSpot(g.und_price);
+      }
     } else if (msg.type === "pnl") {
       const p = held.get(msg.con_id);
       if (p && ratioOf(msg.con_id) !== 0) {
@@ -488,6 +600,8 @@ export function renderCombo(outlet: HTMLElement, spec: string): () => void {
     stream.subscribeBars(null);
     chart?.destroy();
     chart = null;
+    payoff?.destroy();
+    payoff = null;
     document.title = "IB PnL";
   };
 }
